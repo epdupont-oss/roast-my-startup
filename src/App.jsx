@@ -367,11 +367,16 @@ export default function App() {
                   <Hdr emoji="🚉" title="Verdict" />
                   <FlipVerdict text={roast.verdict} />
                 </>}
-                <div style={{ marginTop:28, paddingTop:18, borderTop:"1px solid #f0f0f0", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:12 }}>
+                <div style={{ marginTop:28, paddingTop:18, borderTop:"1px solid #f0f0f0", display:"flex", flexDirection:"column", gap:10 }}>
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
-                  {shareId && <ShareBtn id={shareId} />}
+                  {shareId && <>
+                    <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af", fontStyle:"italic" }}>
+                      Sharing stores your inputs and results on Cloudflare for 90 days. Anyone with the link can read them.
+                    </div>
+                    <ShareBtn id={shareId} />
+                  </>}
                 </div>
               </div>
             )}
