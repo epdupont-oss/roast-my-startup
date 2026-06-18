@@ -287,7 +287,7 @@ export default function App() {
     <div style={{ minHeight:"100vh", background:"#f7f8fa", padding:"clamp(24px,5vw,56px) clamp(16px,4vw,36px)", boxSizing:"border-box" }}>
       <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@400;600&display=swap" rel="stylesheet" />
       <div style={{ maxWidth:720, margin:"0 auto" }}>
-        <div style={{ marginBottom:44 }}>
+        <div style={{ marginBottom:44, width:"100%" }}>
           <div style={{ display:"inline-block", background:"#e8253a", color:"#fff", fontFamily:"Inter,system-ui,sans-serif", fontSize:11, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", padding:"3px 9px", borderRadius:2, marginBottom:16 }}>European Edition</div>
           <h1 style={{ fontFamily:"'DM Serif Display',Georgia,serif", fontSize:"clamp(30px,7vw,52px)", fontWeight:400, color:"#1c2128", margin:"0 0 12px", lineHeight:1.1 }}>Roast My<br/>Startup</h1>
           <p style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:"clamp(14px,2vw,16px)", color:"#6b7280", margin:0, lineHeight:1.65, maxWidth:460 }}>
@@ -363,7 +363,7 @@ export default function App() {
                   <Hdr emoji="🚉" title="Verdict" />
                   <FlipVerdict text={roast.verdict} />
                 </>}
-                <div style={{ marginTop:28, paddingTop:18, borderTop:"1px solid #f0f0f0", display:"flex", flexDirection:"column", gap:10 }}>
+                <div style={{ marginTop:28, paddingTop:18, borderTop:"1px solid #f0f0f0", display:"flex", flexDirection:"column", alignItems:"flex-start", gap:10 }}>
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
