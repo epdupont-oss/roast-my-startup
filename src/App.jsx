@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import LZString from "lz-string";
 
 // ── API caller ────────────────────────────────────────────────────────────────
 // In production (Cloudflare Pages): calls /api/roast which proxies to Mistral
@@ -91,16 +92,10 @@ function parseRoast(raw) {
 }
 
 function compress(obj) {
-  try {
-    return btoa(encodeURIComponent(JSON.stringify(obj)))
-      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
-  } catch { return ""; }
+  try { return LZString.compressToEncodedURIComponent(JSON.stringify(obj)); } catch { return ""; }
 }
 function decompress(s) {
-  try {
-    const padded = s + "=".repeat((4 - s.length % 4) % 4);
-    return JSON.parse(decodeURIComponent(atob(padded.replace(/-/g, "+").replace(/_/g, "/"))));
-  } catch { return null; }
+  try { return JSON.parse(LZString.decompressFromEncodedURIComponent(s)); } catch { return null; }
 }
 
 function FlipVerdict({ text }) {
@@ -198,12 +193,12 @@ function Sec({ emoji, title, body }) {
     </div>
   );
 }
-function ShareBtn({ snap }) {
+function ShareBtn({ payload }) {
   const [ok, setOk] = useState(false);
   return (
     <button onClick={() => {
       try {
-        const url = location.origin + location.pathname + "#i=" + compress(snap);
+        const url = location.origin + location.pathname + "#r=" + compress(payload);
         navigator.clipboard.writeText(url);
         setOk(true); setTimeout(() => setOk(false), 2500);
       } catch {}
@@ -240,20 +235,27 @@ export default function App() {
   const [sketch,  setSketch]  = useState("");
   const [canvas,  setCanvas]  = useState(null);
   const [roast,   setRoast]   = useState(null);
-  const [snap,        setSnap]        = useState(null);
-  const [autoRunning, setAutoRunning] = useState(false);
+  const [snap, setSnap] = useState(null);
   const ref = useRef(null);
 
-  async function runWith(ideaVal, stageVal, custVal, moatVal) {
-    if (!ideaVal.trim()) return;
+  useEffect(() => {
+    const m = location.hash.match(/[#&]r=([^&]+)/);
+    if (!m) return;
+    const p = decompress(m[1]);
+    if (!p) return;
+    setSketch(p.sketch || ""); setCanvas(p.canvas || null); setRoast(p.roast || null); setSnap(p.snap || null);
+  }, []);
+
+  async function go() {
+    if (!idea.trim()) return;
     setLoading(true); setErr("");
     setSketch(""); setCanvas(null); setRoast(null); setSnap(null);
     location.hash = "";
     const m = [
-      "Startup idea: " + ideaVal,
-      stageVal ? "Stage: " + stageVal : "",
-      custVal  ? "Target customer: " + custVal : "",
-      moatVal  ? "Claimed advantage: " + moatVal : "",
+      "Startup idea: " + idea,
+      stage ? "Stage: " + stage : "",
+      cust  ? "Target customer: " + cust : "",
+      moat  ? "Claimed advantage: " + moat : "",
     ].filter(Boolean).join("\n");
     try {
       setStep(0);
@@ -265,31 +267,15 @@ export default function App() {
       setStep(2);
       const ro = await ask(P_ROAST, m, "roast");
       setRoast(parseRoast(ro));
-      setSnap({ idea: ideaVal, stage: stageVal, cust: custVal, moat: moatVal });
+      setSnap({ idea, stage, cust, moat });
       setStep(3);
       setTimeout(() => ref.current?.scrollIntoView({ behavior:"smooth" }), 100);
     } catch(e) {
       setErr(e.message);
     } finally {
       setLoading(false);
-      setAutoRunning(false);
     }
   }
-
-  function go() { runWith(idea, stage, cust, moat); }
-
-  useEffect(() => {
-    const m = location.hash.match(/[#&]i=([^&]+)/);
-    if (!m) return;
-    const p = decompress(m[1]);
-    if (!p || !p.idea) return;
-    setIdea(p.idea || "");
-    setStage(p.stage || "");
-    setCust(p.cust || "");
-    setMoat(p.moat || "");
-    setAutoRunning(true);
-    runWith(p.idea, p.stage || "", p.cust || "", p.moat || "");
-  }, []);
 
   return (
     <div style={{ minHeight:"100vh", background:"#f7f8fa", padding:"clamp(24px,5vw,56px) clamp(16px,4vw,36px)", boxSizing:"border-box" }}>
@@ -302,7 +288,16 @@ export default function App() {
             Honest feedback from a European lens — YC pattern-matching, Swiss market reality, and what Balderton or Atomico would actually say. No hype.
           </p>
         </div>
-        {!snap && !autoRunning && (
+        {snap && !idea && (
+          <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:4, padding:"11px 15px", marginBottom:22, fontFamily:"Inter,system-ui,sans-serif", fontSize:14, color:"#92400e", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
+            <span>📎 Shared evaluation</span>
+            <button onClick={() => { setSketch(""); setCanvas(null); setRoast(null); setSnap(null); location.hash=""; }}
+              style={{ background:"none", border:"1px solid #92400e", borderRadius:3, padding:"3px 10px", cursor:"pointer", color:"#92400e", fontFamily:"Inter,system-ui,sans-serif", fontSize:13 }}>
+              Roast my idea →
+            </button>
+          </div>
+        )}
+        {!snap && (
           <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:4, padding:"clamp(18px,4vw,32px)", marginBottom:28 }}>
             <div style={{ marginBottom:18 }}>
               <label style={LS}>Your startup idea *</label>
@@ -366,7 +361,7 @@ export default function App() {
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
-                  <ShareBtn snap={snap} />
+                  <ShareBtn payload={{ sketch, canvas, roast, snap }} />
                 </div>
               </div>
             )}
