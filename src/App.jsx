@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef } from "react";
-import LZString from "lz-string";
 
 // ── API caller ────────────────────────────────────────────────────────────────
 // In production (Cloudflare Pages): calls /api/roast which proxies to Mistral
@@ -91,12 +90,6 @@ function parseRoast(raw) {
   };
 }
 
-function compress(obj) {
-  try { return LZString.compressToEncodedURIComponent(JSON.stringify(obj)); } catch { return ""; }
-}
-function decompress(s) {
-  try { return JSON.parse(LZString.decompressFromEncodedURIComponent(s)); } catch { return null; }
-}
 
 function FlipVerdict({ text }) {
   const [shown, setShown] = useState("");
@@ -193,13 +186,12 @@ function Sec({ emoji, title, body }) {
     </div>
   );
 }
-function ShareBtn({ payload }) {
+function ShareBtn({ id }) {
   const [ok, setOk] = useState(false);
   return (
     <button onClick={() => {
       try {
-        const url = location.origin + location.pathname + "#r=" + compress(payload);
-        navigator.clipboard.writeText(url);
+        navigator.clipboard.writeText(location.origin + "/?r=" + id);
         setOk(true); setTimeout(() => setOk(false), 2500);
       } catch {}
     }} style={{ display:"flex", alignItems:"center", gap:7, background:ok?"#16a34a":"#1c2128", color:"#fff", border:"none", borderRadius:3, padding:"9px 16px", fontFamily:"Inter,system-ui,sans-serif", fontSize:13, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
@@ -235,22 +227,26 @@ export default function App() {
   const [sketch,  setSketch]  = useState("");
   const [canvas,  setCanvas]  = useState(null);
   const [roast,   setRoast]   = useState(null);
-  const [snap, setSnap] = useState(null);
+  const [snap,    setSnap]    = useState(null);
+  const [shareId, setShareId] = useState(null);
   const ref = useRef(null);
 
   useEffect(() => {
-    const m = location.hash.match(/[#&]r=([^&]+)/);
-    if (!m) return;
-    const p = decompress(m[1]);
-    if (!p) return;
-    setSketch(p.sketch || ""); setCanvas(p.canvas || null); setRoast(p.roast || null); setSnap(p.snap || null);
+    const id = new URLSearchParams(location.search).get("r");
+    if (!id) return;
+    fetch("/api/load?id=" + id)
+      .then(r => r.json())
+      .then(p => {
+        if (!p || p.error) return;
+        setSketch(p.sketch || ""); setCanvas(p.canvas || null); setRoast(p.roast || null); setSnap(p.snap || null);
+      })
+      .catch(() => {});
   }, []);
 
   async function go() {
     if (!idea.trim()) return;
-    setLoading(true); setErr("");
+    setLoading(true); setErr(""); setShareId(null);
     setSketch(""); setCanvas(null); setRoast(null); setSnap(null);
-    location.hash = "";
     const m = [
       "Startup idea: " + idea,
       stage ? "Stage: " + stage : "",
@@ -263,13 +259,27 @@ export default function App() {
       setSketch(sk);
       setStep(1);
       const cv = await ask(P_CANVAS, m, "canvas");
-      try { setCanvas(JSON.parse(cv.replace(/```json|```/g,"").trim())); } catch {}
+      let canvasData = null;
+      try { canvasData = JSON.parse(cv.replace(/```json|```/g,"").trim()); } catch {}
+      if (canvasData) setCanvas(canvasData);
       setStep(2);
       const ro = await ask(P_ROAST, m, "roast");
-      setRoast(parseRoast(ro));
-      setSnap({ idea, stage, cust, moat });
+      const roastData = parseRoast(ro);
+      setRoast(roastData);
+      const snapData = { idea, stage, cust, moat };
+      setSnap(snapData);
       setStep(3);
       setTimeout(() => ref.current?.scrollIntoView({ behavior:"smooth" }), 100);
+      // Save to KV and get a short share ID
+      try {
+        const res = await fetch("/api/save", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ sketch: sk, canvas: canvasData, roast: roastData, snap: snapData }),
+        });
+        const { id } = await res.json();
+        if (id) setShareId(id);
+      } catch {}
     } catch(e) {
       setErr(e.message);
     } finally {
@@ -361,7 +371,7 @@ export default function App() {
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
-                  <ShareBtn payload={{ sketch, canvas, roast, snap }} />
+                  {shareId && <ShareBtn id={shareId} />}
                 </div>
               </div>
             )}
