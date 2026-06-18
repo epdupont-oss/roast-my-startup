@@ -1,4 +1,12 @@
 import { useState, useEffect, useRef } from "react";
+import LZString from "lz-string";
+
+function compress(obj) {
+  try { return LZString.compressToEncodedURIComponent(JSON.stringify(obj)); } catch { return ""; }
+}
+function decompress(s) {
+  try { return JSON.parse(LZString.decompressFromEncodedURIComponent(s)); } catch { return null; }
+}
 
 // ── API caller ────────────────────────────────────────────────────────────────
 // In production (Cloudflare Pages): calls /api/roast which proxies to Mistral
@@ -186,12 +194,13 @@ function Sec({ emoji, title, body }) {
     </div>
   );
 }
-function ShareBtn({ id }) {
+function ShareBtn({ snap }) {
   const [ok, setOk] = useState(false);
   return (
     <button onClick={() => {
       try {
-        navigator.clipboard.writeText(location.origin + "/?r=" + id);
+        const url = location.origin + location.pathname + "#i=" + compress(snap);
+        navigator.clipboard.writeText(url);
         setOk(true); setTimeout(() => setOk(false), 2500);
       } catch {}
     }} style={{ display:"flex", alignItems:"center", gap:7, background:ok?"#16a34a":"#1c2128", color:"#fff", border:"none", borderRadius:3, padding:"9px 16px", fontFamily:"Inter,system-ui,sans-serif", fontSize:13, fontWeight:600, cursor:"pointer", transition:"background .2s" }}>
@@ -227,31 +236,19 @@ export default function App() {
   const [sketch,  setSketch]  = useState("");
   const [canvas,  setCanvas]  = useState(null);
   const [roast,   setRoast]   = useState(null);
-  const [snap,    setSnap]    = useState(null);
-  const [shareId, setShareId] = useState(null);
+  const [snap,        setSnap]        = useState(null);
+  const [autoRunning, setAutoRunning] = useState(false);
   const ref = useRef(null);
 
-  useEffect(() => {
-    const id = new URLSearchParams(location.search).get("r");
-    if (!id) return;
-    fetch("/api/load?id=" + id)
-      .then(r => r.json())
-      .then(p => {
-        if (!p || p.error) return;
-        setSketch(p.sketch || ""); setCanvas(p.canvas || null); setRoast(p.roast || null); setSnap(p.snap || null);
-      })
-      .catch(() => {});
-  }, []);
-
-  async function go() {
-    if (!idea.trim()) return;
-    setLoading(true); setErr(""); setShareId(null);
+  async function runWith(ideaVal, stageVal, custVal, moatVal) {
+    if (!ideaVal.trim()) return;
+    setLoading(true); setErr("");
     setSketch(""); setCanvas(null); setRoast(null); setSnap(null);
     const m = [
-      "Startup idea: " + idea,
-      stage ? "Stage: " + stage : "",
-      cust  ? "Target customer: " + cust : "",
-      moat  ? "Claimed advantage: " + moat : "",
+      "Startup idea: " + ideaVal,
+      stageVal ? "Stage: " + stageVal : "",
+      custVal  ? "Target customer: " + custVal : "",
+      moatVal  ? "Claimed advantage: " + moatVal : "",
     ].filter(Boolean).join("\n");
     try {
       setStep(0);
@@ -259,33 +256,32 @@ export default function App() {
       setSketch(sk);
       setStep(1);
       const cv = await ask(P_CANVAS, m, "canvas");
-      let canvasData = null;
-      try { canvasData = JSON.parse(cv.replace(/```json|```/g,"").trim()); } catch {}
-      if (canvasData) setCanvas(canvasData);
+      try { setCanvas(JSON.parse(cv.replace(/```json|```/g,"").trim())); } catch {}
       setStep(2);
       const ro = await ask(P_ROAST, m, "roast");
-      const roastData = parseRoast(ro);
-      setRoast(roastData);
-      const snapData = { idea, stage, cust, moat };
-      setSnap(snapData);
+      setRoast(parseRoast(ro));
+      setSnap({ idea: ideaVal, stage: stageVal, cust: custVal, moat: moatVal });
       setStep(3);
       setTimeout(() => ref.current?.scrollIntoView({ behavior:"smooth" }), 100);
-      // Save to KV and get a short share ID
-      try {
-        const res = await fetch("/api/save", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sketch: sk, canvas: canvasData, roast: roastData, snap: snapData }),
-        });
-        const { id } = await res.json();
-        if (id) setShareId(id);
-      } catch {}
     } catch(e) {
       setErr(e.message);
     } finally {
       setLoading(false);
+      setAutoRunning(false);
     }
   }
+
+  function go() { runWith(idea, stage, cust, moat); }
+
+  useEffect(() => {
+    const m = location.hash.match(/[#&]i=([^&]+)/);
+    if (!m) return;
+    const p = decompress(m[1]);
+    if (!p || !p.idea) return;
+    setIdea(p.idea || ""); setStage(p.stage || ""); setCust(p.cust || ""); setMoat(p.moat || "");
+    setAutoRunning(true);
+    runWith(p.idea, p.stage || "", p.cust || "", p.moat || "");
+  }, []);
 
   return (
     <div style={{ minHeight:"100vh", background:"#f7f8fa", padding:"clamp(24px,5vw,56px) clamp(16px,4vw,36px)", boxSizing:"border-box" }}>
@@ -307,7 +303,7 @@ export default function App() {
             </button>
           </div>
         )}
-        {!snap && (
+        {!snap && !autoRunning && (
           <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:4, padding:"clamp(18px,4vw,32px)", marginBottom:28 }}>
             <div style={{ marginBottom:18 }}>
               <label style={LS}>Your startup idea *</label>
@@ -371,11 +367,11 @@ export default function App() {
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
-                  {shareId && <>
+                  {snap && <>
                     <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af", fontStyle:"italic" }}>
-                      Your inputs and results are encoded directly in the link. Nothing is ever saved on our servers.
+                      Your inputs are encoded directly in the link. Nothing is ever saved on our servers.
                     </div>
-                    <ShareBtn id={shareId} />
+                    <ShareBtn snap={snap} />
                   </>}
                 </div>
               </div>
