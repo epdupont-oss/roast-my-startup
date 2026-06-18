@@ -373,7 +373,7 @@ export default function App() {
                   </div>
                   {shareId && <>
                     <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af", fontStyle:"italic" }}>
-                      Sharing stores your inputs and results on Cloudflare for 90 days. Anyone with the link can read them.
+                      Your inputs and results are encoded directly in the link. Nothing is ever saved on our servers.
                     </div>
                     <ShareBtn id={shareId} />
                   </>}
