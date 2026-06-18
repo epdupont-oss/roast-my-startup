@@ -198,12 +198,12 @@ function Sec({ emoji, title, body }) {
     </div>
   );
 }
-function ShareBtn({ payload }) {
+function ShareBtn({ snap }) {
   const [ok, setOk] = useState(false);
   return (
     <button onClick={() => {
       try {
-        const url = location.origin + location.pathname + "#r=" + compress(payload);
+        const url = location.origin + location.pathname + "#i=" + compress(snap);
         navigator.clipboard.writeText(url);
         setOk(true); setTimeout(() => setOk(false), 2500);
       } catch {}
@@ -240,30 +240,21 @@ export default function App() {
   const [sketch,  setSketch]  = useState("");
   const [canvas,  setCanvas]  = useState(null);
   const [roast,   setRoast]   = useState(null);
-  const [snap,    setSnap]    = useState(null);
+  const [snap,        setSnap]        = useState(null);
+  const [autoRunning, setAutoRunning] = useState(false);
   const ref = useRef(null);
 
-  useEffect(() => {
-    const m = location.hash.match(/[#&]r=([^&]+)/);
-    if (!m) return;
-    const p = decompress(m[1]);
-    if (!p) return;
-    setSketch(p.sketch||""); setCanvas(p.canvas||null); setRoast(p.roast||null); setSnap(p.input||null);
-  }, []);
-
-  const buildMsg = () => [
-    "Startup idea: " + idea,
-    stage ? "Stage: " + stage : "",
-    cust  ? "Target customer: " + cust : "",
-    moat  ? "Claimed advantage: " + moat : "",
-  ].filter(Boolean).join("\n");
-
-  async function go() {
-    if (!idea.trim()) return;
+  async function runWith(ideaVal, stageVal, custVal, moatVal) {
+    if (!ideaVal.trim()) return;
     setLoading(true); setErr("");
     setSketch(""); setCanvas(null); setRoast(null); setSnap(null);
     location.hash = "";
-    const m = buildMsg();
+    const m = [
+      "Startup idea: " + ideaVal,
+      stageVal ? "Stage: " + stageVal : "",
+      custVal  ? "Target customer: " + custVal : "",
+      moatVal  ? "Claimed advantage: " + moatVal : "",
+    ].filter(Boolean).join("\n");
     try {
       setStep(0);
       const sk = await ask(P_SKETCH, m, "sketch");
@@ -274,17 +265,31 @@ export default function App() {
       setStep(2);
       const ro = await ask(P_ROAST, m, "roast");
       setRoast(parseRoast(ro));
-      setSnap({ idea, stage, cust, moat });
+      setSnap({ idea: ideaVal, stage: stageVal, cust: custVal, moat: moatVal });
       setStep(3);
       setTimeout(() => ref.current?.scrollIntoView({ behavior:"smooth" }), 100);
     } catch(e) {
       setErr(e.message);
     } finally {
       setLoading(false);
+      setAutoRunning(false);
     }
   }
 
-  const sharedView = snap && !idea;
+  function go() { runWith(idea, stage, cust, moat); }
+
+  useEffect(() => {
+    const m = location.hash.match(/[#&]i=([^&]+)/);
+    if (!m) return;
+    const p = decompress(m[1]);
+    if (!p || !p.idea) return;
+    setIdea(p.idea || "");
+    setStage(p.stage || "");
+    setCust(p.cust || "");
+    setMoat(p.moat || "");
+    setAutoRunning(true);
+    runWith(p.idea, p.stage || "", p.cust || "", p.moat || "");
+  }, []);
 
   return (
     <div style={{ minHeight:"100vh", background:"#f7f8fa", padding:"clamp(24px,5vw,56px) clamp(16px,4vw,36px)", boxSizing:"border-box" }}>
@@ -297,16 +302,7 @@ export default function App() {
             Honest feedback from a European lens — YC pattern-matching, Swiss market reality, and what Balderton or Atomico would actually say. No hype.
           </p>
         </div>
-        {sharedView && (
-          <div style={{ background:"#fffbeb", border:"1px solid #fde68a", borderRadius:4, padding:"11px 15px", marginBottom:22, fontFamily:"Inter,system-ui,sans-serif", fontSize:14, color:"#92400e", display:"flex", justifyContent:"space-between", alignItems:"center", flexWrap:"wrap", gap:8 }}>
-            <span>📎 Shared evaluation</span>
-            <button onClick={() => { setSketch(""); setCanvas(null); setRoast(null); setSnap(null); location.hash=""; }}
-              style={{ background:"none", border:"1px solid #92400e", borderRadius:3, padding:"3px 10px", cursor:"pointer", color:"#92400e", fontFamily:"Inter,system-ui,sans-serif", fontSize:13 }}>
-              Roast my idea →
-            </button>
-          </div>
-        )}
-        {!snap && (
+        {!snap && !autoRunning && (
           <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:4, padding:"clamp(18px,4vw,32px)", marginBottom:28 }}>
             <div style={{ marginBottom:18 }}>
               <label style={LS}>Your startup idea *</label>
@@ -370,7 +366,7 @@ export default function App() {
                   <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
                     Atomico State of European Tech · YC 18 startup mistakes · Swiss ecosystem 2024
                   </div>
-                  <ShareBtn payload={{ sketch, canvas, roast, input:snap }} />
+                  <ShareBtn snap={snap} />
                 </div>
               </div>
             )}
