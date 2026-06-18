@@ -91,10 +91,16 @@ function parseRoast(raw) {
 }
 
 function compress(obj) {
-  try { return btoa(encodeURIComponent(JSON.stringify(obj))); } catch { return ""; }
+  try {
+    return btoa(encodeURIComponent(JSON.stringify(obj)))
+      .replace(/\+/g, "-").replace(/\//g, "_").replace(/=/g, "");
+  } catch { return ""; }
 }
 function decompress(s) {
-  try { return JSON.parse(decodeURIComponent(atob(s))); } catch { return null; }
+  try {
+    const padded = s + "=".repeat((4 - s.length % 4) % 4);
+    return JSON.parse(decodeURIComponent(atob(padded.replace(/-/g, "+").replace(/_/g, "/"))));
+  } catch { return null; }
 }
 
 function FlipVerdict({ text }) {
