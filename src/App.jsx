@@ -81,6 +81,17 @@ Three concrete cheap specific actions for next week.
 🚉 VERDICT
 One honest sentence.`;
 
+const P_INVEST = `You are a European VC partner making a fast gut-check call on this idea.
+Respond in EXACTLY 2 lines, no extra text:
+Line 1: Either "I WOULD INVEST" or "I WOULD NOT INVEST" — this exact wording, nothing else.
+Line 2: One sentence reason. Max 20 words.`;
+
+function parseInvest(raw) {
+  const lines = raw.trim().split("\n").filter(Boolean);
+  const verdict = /NOT INVEST/i.test(lines[0] || "") ? false : /INVEST/i.test(lines[0] || "") ? true : null;
+  return { invest: verdict, reason: lines[1] || "" };
+}
+
 function parseRoast(raw) {
   const get = (a, b) => {
     const s = raw.indexOf(a);
@@ -122,6 +133,19 @@ function FlipVerdict({ text }) {
       <div style={{ fontFamily:"monospace", fontSize:"clamp(13px,2vw,15px)", color:done?"#f5c518":"#555", letterSpacing:"0.05em", lineHeight:1.6, wordBreak:"break-word", transition:"color 0.5s", minHeight:22 }}>
         {shown || "·"}
       </div>
+    </div>
+  );
+}
+
+function InvestBanner({ invest }) {
+  if (!invest || invest.invest === null) return null;
+  const yes = invest.invest;
+  return (
+    <div style={{ background:yes?"#16a34a":"#dc2626", borderRadius:6, padding:"24px 22px", textAlign:"center" }}>
+      <div style={{ fontFamily:"'DM Serif Display',Georgia,serif", fontSize:"clamp(20px,4vw,28px)", color:"#fff", marginBottom:8 }}>
+        {yes ? "I WOULD INVEST" : "I WOULD NOT INVEST"}
+      </div>
+      {invest.reason && <div style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:14, color:"rgba(255,255,255,0.9)", lineHeight:1.5 }}>{invest.reason}</div>}
     </div>
   );
 }
@@ -209,7 +233,7 @@ function ShareBtn({ snap }) {
   );
 }
 
-const STEPS = ["Sketching your idea…","Building the canvas…","Writing the diagnosis…","Finishing up…"];
+const STEPS = ["Sketching your idea…","Building the canvas…","Writing the diagnosis…","Making the call…","Finishing up…"];
 function Loader({ step }) {
   const [d, setD] = useState(0);
   useEffect(() => { const iv = setInterval(() => setD(x=>(x+1)%4), 450); return ()=>clearInterval(iv); },[]);
@@ -236,6 +260,7 @@ export default function App() {
   const [sketch,  setSketch]  = useState("");
   const [canvas,  setCanvas]  = useState(null);
   const [roast,   setRoast]   = useState(null);
+  const [invest,  setInvest]  = useState(null);
   const [snap,        setSnap]        = useState(null);
   const [autoRunning, setAutoRunning] = useState(false);
   const ref = useRef(null);
@@ -243,7 +268,7 @@ export default function App() {
   async function runWith(ideaVal, stageVal, custVal, moatVal) {
     if (!ideaVal.trim()) return;
     setLoading(true); setErr("");
-    setSketch(""); setCanvas(null); setRoast(null); setSnap(null);
+    setSketch(""); setCanvas(null); setRoast(null); setInvest(null); setSnap(null);
     const m = [
       "Startup idea: " + ideaVal,
       stageVal ? "Stage: " + stageVal : "",
@@ -260,8 +285,11 @@ export default function App() {
       setStep(2);
       const ro = await ask(P_ROAST, m, "roast");
       setRoast(parseRoast(ro));
-      setSnap({ idea: ideaVal, stage: stageVal, cust: custVal, moat: moatVal });
       setStep(3);
+      const iv = await ask(P_INVEST, m, "invest");
+      setInvest(parseInvest(iv));
+      setSnap({ idea: ideaVal, stage: stageVal, cust: custVal, moat: moatVal });
+      setStep(4);
       setTimeout(() => ref.current?.scrollIntoView({ behavior:"smooth" }), 100);
     } catch(e) {
       setErr(e.message);
@@ -339,7 +367,7 @@ export default function App() {
           </div>
         )}
         {loading && <Loader step={step} />}
-        {(sketch||canvas||roast) && (
+        {(sketch||canvas||roast||invest) && (
           <div ref={ref}>
             {sketch && (
               <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:4, padding:"clamp(18px,4vw,28px)", marginBottom:14 }}>
@@ -376,9 +404,15 @@ export default function App() {
                 </div>
               </div>
             )}
+            {invest && (
+              <div style={{ background:"#fff", border:"1px solid #e5e7eb", borderRadius:4, padding:"clamp(18px,4vw,28px)", marginBottom:14 }}>
+                <Hdr emoji="💰" title="The Investment Call" />
+                <InvestBanner invest={invest} />
+              </div>
+            )}
             {snap && idea && (
               <div style={{ textAlign:"center", paddingTop:8, paddingBottom:24 }}>
-                <button onClick={() => { setSketch(""); setCanvas(null); setRoast(null); setSnap(null); }}
+                <button onClick={() => { setSketch(""); setCanvas(null); setRoast(null); setInvest(null); setSnap(null); }}
                   style={{ background:"none", border:"1px solid #d1d5db", borderRadius:3, padding:"9px 18px", cursor:"pointer", fontFamily:"Inter,system-ui,sans-serif", fontSize:14, color:"#6b7280" }}>
                   ← Roast another idea
                 </button>
@@ -389,6 +423,11 @@ export default function App() {
         <div style={{ marginTop:44, paddingTop:22, borderTop:"1px solid #e5e7eb", fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af", display:"flex", justifyContent:"space-between", flexWrap:"wrap", gap:8 }}>
           <span>Built with Claude · Cloudflare Pages</span>
           <span>🇨🇭 Swiss-aware · 🇪🇺 European scale mindset</span>
+        </div>
+        <div style={{ marginTop:12, fontFamily:"Inter,system-ui,sans-serif", fontSize:11, color:"#9ca3af" }}>
+          This roast is only for fun. For questions or to roast ME, reach out at{" "}
+          <a href="mailto:epdupont@gmail.com" style={{ color:"#9ca3af" }}>epdupont@gmail.com</a> or on{" "}
+          <a href="https://www.linkedin.com/in/emiledupont" target="_blank" rel="noopener noreferrer" style={{ color:"#9ca3af" }}>LinkedIn</a>.
         </div>
       </div>
     </div>

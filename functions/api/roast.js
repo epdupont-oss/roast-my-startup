@@ -5,6 +5,7 @@ const TASK_CONFIGS = {
   sketch: { max_tokens: 200, temperature: 0.7 },
   canvas: { max_tokens: 400, temperature: 0.2 },
   roast:  { max_tokens: 900, temperature: 0.6 },
+  invest: { max_tokens: 100, temperature: 0.5 },
 };
 
 const CORS = {
