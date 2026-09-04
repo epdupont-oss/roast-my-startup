@@ -318,7 +318,7 @@ export default function App() {
         <div style={{ marginBottom:44, width:"100%" }}>
           <div style={{ display:"inline-block", background:"#e8253a", color:"#fff", fontFamily:"Inter,system-ui,sans-serif", fontSize:11, fontWeight:700, letterSpacing:"0.15em", textTransform:"uppercase", padding:"3px 9px", borderRadius:2, marginBottom:16 }}>European Edition</div>
           <h1 style={{ fontFamily:"'DM Serif Display',Georgia,serif", fontSize:"clamp(30px,7vw,52px)", fontWeight:400, color:"#1c2128", margin:"0 0 12px", lineHeight:1.1 }}>Roast My<br/>Startup</h1>
-          <p style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:"clamp(14px,2vw,16px)", color:"#6b7280", margin:0, lineHeight:1.65, maxWidth:460 }}>
+          <p style={{ fontFamily:"Inter,system-ui,sans-serif", fontSize:"clamp(15px,2.5vw,17px)", color:"#6b7280", margin:0, lineHeight:1.65 }}>
             Honest feedback from a European lens — YC pattern-matching, Swiss market reality, and what Balderton or Atomico would actually say. No hype.
           </p>
         </div>
